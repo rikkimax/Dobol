@@ -1,0 +1,523 @@
+id: PAY4
+author: LYDIA
+installation: 
+date_written: 
+date_compiled: 
+security: 
+Environment Division: {
+    source-computer: IBM-PC
+    object-computer: IBM-PC
+    Special-Names {
+        NEW-PAGE = C01
+    }
+    File-Control {
+        INPUT-FILE = Disk PAY4DATA
+        OUTPUT-FILE = Printer PAY4LIST
+    }
+}
+Data Division: {
+    File Section: {
+        INPUT-FILE = standard {
+            level 1 INPUT-REC 
+            level 3 IR-NUMBER X(6)
+            level 3 IR-NAME X(20)
+            level 3 IR-HOURS 99V99
+            level 3 IR-RATE 99V99
+            level 3 IR-UNION 99V99
+            level 3 IR-MORTGAGE 999V99
+        }
+        OUTPUT-FILE {
+            level 1 OUTPUT-REC 
+            level 3 OR-NUMBER X(6)
+            level 3 FILLER X
+            level 3 OR-NAME X(20)
+            level 3 FILLER X
+            level 3 OR-GROSS ZZZ9.99
+            level 3 FILLER X
+            level 3 OR-TAX ZZZ9.99
+            level 3 FILLER X
+            level 3 OR-UNION ZZZ9.99 blank when zero
+            level 3 OR-UNION-X X(7) redefines or-union
+            level 3 FILLER X
+            level 3 OR-MORTGAGE ZZZ9.99 blank when zero
+            level 3 OR-MORTGAGE-X X(7) redefines or-mortgage
+            level 3 FILLER X
+            level 3 OR-NETT ZZZ9.99
+            level 3 FILLER X
+        }
+    }
+    Worker Storage Section: {
+        level 1 WA-COUNTERS 
+        level 3 WA-EMPLOYEE-COUNT S9(8) is comp type
+        level 3 WA-PAGE-COUNT S9(8) is comp type
+        level 3 WA-LINE-COUNT S9(8) is comp type
+        level 3 WA-LINE-THROW S9(8) is comp type
+        level 1 WB-INDICATORS 
+        level 3 WB-EOF-IND X
+        level 88 WB-EOF 
+        level 3 WB-UNION-IND X
+        level 88 WB-UNION-NOT-POSS 
+        level 3 WB-MORTGAGE-IND X
+        level 88 WB-MORTGAGE-NOT-POSS 
+        level 1 WC-HEADING-LINES 
+        level 3 WC-LINE2 
+        level 5 FILLER X(10) {
+            SPACES
+        }
+        level 5 FILLER X(25) {
+            "A. B. CEEDEE CO. LTD."
+        }
+        level 5 WC-L2-PAGE-NAME X {
+            "PAYROLL LIST"
+        }
+        level 5 FILLER X(15) {
+            "PAY PERIOD 01"
+        }
+        level 5 FILLER X(05) {
+            "PAGE "
+        }
+        level 5 WC-L2-PAGE-NO Z9
+        level 3 WC-LINE4 
+        level 5 FILLER X(07) {
+            "NUMBER"
+        }
+        level 5 FILLER X(21) {
+            "NAME"
+        }
+        level 5 FILLER X(08) {
+            "GROSS"
+        }
+        level 5 FILLER X(08) {
+            "TAX"
+        }
+        level 5 FILLER X(08) {
+            "UNION"
+        }
+        level 5 FILLER X(08) {
+            "MORT"
+        }
+        level 5 FILLER X(08) {
+            "NETT"
+        }
+        level 1 WD-TOTAL-LINES 
+        level 3 WD-LINE15 
+        level 5 FILLER X(25) {
+            "NUMBER OF EMPLOYEES"
+        }
+        level 5 WD-L15-TOTAL-EMPLOYEES ZZ9
+        level 5 FILLER X(05) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "TOTAL GROSS"
+        }
+        level 5 WD-L15-TOTAL-GROSS ZZ,ZZ9.99
+        level 5 FILLER X(03) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "TOTAL UNION"
+        }
+        level 5 WD-L15-TOTAL-MORTGAGE ZZ,ZZ9.99
+        level 3 WD-LINE17 
+        level 5 FILLER X(33) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "TOTAL TAX"
+        }
+        level 5 WD-L17-TOTAL-TAX ZZ,ZZ9.99
+        level 5 FILLER X(03) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "TOTAL MORTGAGE"
+        }
+        level 5 WD-L17-TOTAL-UNION ZZ,ZZ9.99
+        level 3 WD-LINE19 
+        level 5 FILLER X(33) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "TOTAL NETT"
+        }
+        level 5 WD-L19-TOTAL-NETT ZZ,ZZ9.99
+        level 5 FILLER X(03) {
+            SPACES
+        }
+        level 5 FILLER X(12) {
+            "EXCEPTIONS"
+        }
+        level 5 WD-L19-TOTAL-EXCEPTIONS ZZ9
+        level 1 WF-EMPLOYEE-VALUES 
+        level 3 WF-GROSS S9(6)V99 is comp type
+        level 3 WF-TAX S9(6)V99 is comp type
+        level 3 WF-NETT S9(6)V99 is comp type
+        level 3 WF-TEMP-DED S9(6)V99 is comp type
+        level 1 WG-TOTALS 
+        level 3 WG-TOTAL-GROSS S9(6)V99 is comp type
+        level 3 WG-TOTAL-TAX S9(6)V99 is comp type
+        level 3 WG-TOTAL-NETT S9(6)V99 is comp type
+        level 3 WG-TOTAL-UNION S9(6)V99 is comp type
+        level 3 WG-TOTAL-MORTGAGE S9(6)V99 is comp type
+        level 3 WG-TOTAL-EMPLOYEES S999 is comp type
+        level 3 WG-TOTAL-EXCEPTIONS S9(8) is comp type
+        level 1 WH-MISCELLANEOUS 
+        level 3 WH-SPARE-HEAD X(26) {
+            "PAYROLL TOTALS"
+        }
+    }
+}
+Procedure Division: {
+    1A : MAIN-LINE {
+        Display args {
+            "STARTING PAY4"
+        }
+        Perform args {
+            2A-INITIALISE
+        }
+        Perform args {
+            3A-DEAL-WITH-EMPLOYEE UNTIL WB-EOF
+        }
+        Perform args {
+            2D-TIDY-UP
+        }
+        Display args {
+            "FINISHING PAY4"
+        }
+        StopRun
+    }
+    2A : INITIALISE {
+        Display args {
+            "2A INITIALISE"
+        }
+        Open args {
+            INPUT INPUT-FILE
+        }
+        Move args {
+            LOW-VALUES TO WA-COUNTERS
+        }
+        Move args {
+            16 TO WA-LINE-COUNT
+        }
+        Move args {
+            "N" TO WB-EOF-IND
+        }
+        Move args {
+            SPACES TO OUTPUT-REC
+        }
+        Move args {
+            LOW-VALUES TO WG-TOTALS
+        }
+        Perform args {
+            2B-READ-EMPLOYEE
+        }
+        Exit
+    }
+    2B : READ-EMPLOYEE {
+        Read args {
+            INPUT-FILE AT END MOVE "Y" TO WB-EOF-IND
+        }
+        Display args {
+            "2A JUST READ " INPUT-REC
+        }
+        Exit
+    }
+    2C : PRINT-LINE {
+        Display args {
+            "2C JUST PUTTING OUT " OUTPUT-REC
+        }
+        Write args {
+            OUTPUT-REC AFTER WA-LINE-THROW
+        }
+        Add args {
+            WA-LINE-THROW TO WA-LINE-COUNT
+        }
+        Move args {
+            1 TO WA-LINE-THROW
+        }
+        Move args {
+            SPACES TO OUTPUT-REC
+        }
+        Exit
+    }
+    2D : TIDY-UP {
+        Display args {
+            "2D TIDY-UP"
+        }
+        Perform args {
+            4D-PRINT-TOTALS
+        }
+        Close args {
+            INPUT-FILE, OUTPUT-FILE
+        }
+        Exit
+    }
+    3A : DEAL-WITH-EMPLOYEE {
+        Display args {
+            "3A DEALING WITH EMPLOYEE " INPUT-REC
+        }
+        Move args {
+            "N" TO WB-UNION-IND, WB-MORTGAGE-IND
+        }
+        Add args {
+            1 TO WA-EMPLOYEE-COUNT
+        }
+        IfCondition args {
+            A-LINE-COUNT > 12
+        } condition {
+            Perform args {
+                3B-PRINT-HEADINGS
+            }
+        }
+        Perform args {
+            4A-CALC-VALUES
+        }
+        Perform args {
+            4B-SETUP-LINE
+        }
+        Perform args {
+            4D-ACCUM-TOTALS
+        }
+        Perform args {
+            2C-PRINT-LINE
+        }
+        Perform args {
+            2B-READ-EMPLOYEE
+        }
+        Exit
+    }
+    3B : PRINT-HEADINGS {
+        Display args {
+            "3B-PRINT-HEADINGS"
+        }
+        Perform args {
+            5A-PRINT-FIRST-LINE
+        }
+        Move args {
+            WC-LINE4 TO OUTPUT-REC
+        }
+        Move args {
+            2 TO WA-LINE-THROW
+        }
+        Perform args {
+            2C-PRINT-LINE
+        }
+        Move args {
+            2 TO WA-LINE-THROW
+        }
+        Move args {
+            ZERO TO WA-LINE-COUNT
+        }
+        Exit
+    }
+    4A : CALC-VALUES {
+        Display args {
+            "4A-CALC-VALUES"
+        }
+        Multiply args {
+            IR-HOURS BY IR-RATE GIVING WF-GROSS
+        }
+        Multiply args {
+            WF-GROSS BY 0.25 GIVING WF-TAX ROUNDED
+        }
+        Multiply args {
+            WF-GROSS BY 0.06 GIVING WF-SUPER ROUNDED
+        }
+        Add args {
+            WF-TAX WF-SUPER GIVING WF-TEMP-DED
+        }
+        Subtract args {
+            WF-TEMP-DED FROM WF-GROSS GIVING WF-NETT
+        }
+        IfCondition args {
+            R-UNION NOT > WF-NETT
+        } condition {
+            Subtract args {
+                IR-UNION FROM WF-NETT ELSE
+            }
+        } else {
+            Move args {
+                "Y" TO WB-UNION-IND
+            }
+        }
+        IfCondition args {
+            R-MORTGAGE NOT > WF-NETT
+        } condition {
+            Subtract args {
+                IR-MORTGAGE FROM WF-NETT ELSE
+            }
+        } else {
+            Move args {
+                "Y" TO WB-MORTGAGE-IND
+            }
+        }
+        Display args {
+            "GROSS = " WF-GROSS
+        }
+        Exit
+    }
+    4B : SETUP-LINE {
+        Display args {
+            "4B-SETUP-LINE " IR-NAME
+        }
+        Move args {
+            IR-NUMBER TO OR-NUMBER
+        }
+        Move args {
+            IR-NAME TO OR-NAME
+        }
+        IfCondition args {
+            B-UNION-NOT-POSS
+        } condition {
+            Move args {
+                " *****" TO OR-UNION-X ELSE
+            }
+        } else {
+            Move args {
+                IR-UNION TO OR-UNION
+            }
+        }
+        IfCondition args {
+            B-MORTGAGE-NOT-POSS
+        } condition {
+            Move args {
+                " *****" TO OR-MORTGAGE-X ELSE
+            }
+        } else {
+            Move args {
+                IR-MORTGAGE TO OR-MORTGAGE
+            }
+        }
+        Move args {
+            WF-GROSS TO OR-GROSS
+        }
+        Move args {
+            WF-TAX TO OR-TAX
+        }
+        Move args {
+            WF-NETT TO OR-NETT
+        }
+        Exit
+    }
+    4C : ACCUM-TOTALS {
+        Display args {
+            "4C-ACCUM-TOTALS"
+        }
+        Add args {
+            1 TO WG-TOTAL-EMPLOYEES
+        }
+        IfCondition args {
+            OT WB-UNION-NOT-POSS
+        } condition {
+            Add args {
+                IR-UNION TO WG-TOTAL-UNION
+            }
+        }
+        IfCondition args {
+            OT WB-MORTGAGE-NOT-POSS
+        } condition {
+            Add args {
+                IR-MORTGAGE TO WG-TOTAL-MORTGAGE
+            }
+        }
+        Add args {
+            WF-GROSS TO WG-TOTAL-NETT
+        }
+        Add args {
+            WF-NETT TO WG-TOTAL-GROSS
+        }
+        Add args {
+            WF-TAX TO WG-TOTAL-TAX
+        }
+        IfCondition args {
+            B-UNION-NOT-POSS OR WB-MORTGAGE-NOT-POSS
+        } condition {
+            Add args {
+                1 TO WG-TOTAL-EXCEPTIONS
+            }
+        }
+        Exit
+    }
+    4D : PRINT-TOTALS {
+        Display args {
+            "4D-PRINT-TOTALS"
+        }
+        Move args {
+            WH-SPARE-HEAD TO WC-L2-PAGE-NAME
+        }
+        Perform args {
+            5A-PRINT-FIRST-LINE
+        }
+        Move args {
+            WG-TOTAL-EMPLOYEES TO WD-L15-TOTAL-EMPLOYEES
+        }
+        Move args {
+            WG-TOTAL-GROSS TO WD-L15-TOTAL-GROSS
+        }
+        Move args {
+            WG-TOTAL-TAX TO WD-L17-TOTAL-TAX
+        }
+        Move args {
+            WG-TOTAL-NETT TO WD-L19-TOTAL-NETT
+        }
+        Move args {
+            WG-TOTAL-MORTGAGE TO WD-L15-TOTAL-MORTGAGE
+        }
+        Move args {
+            WG-TOTAL-UNION TO WD-L17-TOTAL-UNION
+        }
+        Move args {
+            WG-TOTAL-EXCEPTIONS TO WD-L19-TOTAL-EXCEPTIONS
+        }
+        Subtract args {
+            WG-TOTAL-EXCEPTIONS FROM WG-TOTAL-EMPLOYEES
+        }
+        Move args {
+            WD-LINE15 TO OUTPUT-REC
+        }
+        Move args {
+            2 TO WA-LINE-THROW
+        }
+        Perform args {
+            2C-PRINT-LINE
+        }
+        Move args {
+            WD-LINE17 TO OUTPUT-REC
+        }
+        Move args {
+            2 TO WA-LINE-THROW
+        }
+        Perform args {
+            2C-PRINT-LINE
+        }
+        Move args {
+            WD-LINE19 TO OUTPUT-REC
+        }
+        Move args {
+            2 TO WA-LINE-THROW
+        }
+        Perform args {
+            2C-PRINT-LINE
+        }
+        Exit
+    }
+    5A : PRINT-FIRST-LINE {
+        Display args {
+            "PRINT-FIRST-LINE"
+        }
+        Add args {
+            1 TO WA-PAGE-COUNT
+        }
+        Move args {
+            WA-PAGE-COUNT TO WC-L2-PAGE-NO
+        }
+        Move args {
+            WC-LINE2 TO OUTPUT-REC
+        }
+        Write args {
+            OUTPUT-REC AFTER NEW-PAGE 5A-EXIT
+        }
+        Exit
+    }
+}
