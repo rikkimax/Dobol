@@ -195,7 +195,7 @@ struct ProcedureDivisionSection {
 	}
 }
 
-enum DobolFunctions {
+enum StatementTypes {
 	Unknown,
 	Exit,
 	StopRun,
@@ -209,39 +209,47 @@ enum DobolFunctions {
 	Close,
 	Subtract,
 	IfCondition,
-	Multiply
+	Multiply,
+	Endif
 }
 
 class ProcedureDivisionStatement {
-	DobolFunctions functionType;
+	StatementTypes type;
 	string args;
 	
-	ProcedureDivisionStatement conditionStatement;
-	ProcedureDivisionStatement elseStatement;
+	ProcedureDivisionStatement previousCondition;
+	ProcedureDivisionStatement[] conditionStatement;
+	ProcedureDivisionStatement[] elseStatement;
 	
 	string toString(size_t indent = 0) {
 		string ret;
-		ret ~= getIndent(indent) ~ to!string(functionType);
-		
-		if (args.length > 0) {
-			ret ~= " args {\n";
-			ret ~= getIndent(indent + 1) ~ args ~ "\n";
-			ret ~= getIndent(indent) ~ "}";
+		if (type != StatementTypes.Endif) {
+			ret ~= getIndent(indent) ~ to!string(type);
+			
+			if (args.length > 0) {
+				ret ~= " args {\n";
+				ret ~= getIndent(indent + 1) ~ args ~ "\n";
+				ret ~= getIndent(indent) ~ "}";
+			}
+			
+			if (conditionStatement !is null) {
+				ret ~= " condition {\n";
+				foreach(s; conditionStatement) {
+					ret ~= s.toString(indent + 1);
+				}
+				ret ~= getIndent(indent) ~ "}";
+			}
+			
+			if (elseStatement !is null) {
+				ret ~= " else {\n";
+				foreach(s; elseStatement) {
+					ret ~= s.toString(indent + 1);
+				}
+				ret ~= getIndent(indent) ~ "}";
+			}
+			
+			ret ~= "\n";
 		}
-		
-		if (conditionStatement !is null) {
-			ret ~= " condition {\n";
-			ret ~= conditionStatement.toString(indent + 1);
-			ret ~= getIndent(indent) ~ "}";
-		}
-		
-		if (elseStatement !is null) {
-			ret ~= " else {\n";
-			ret ~= elseStatement.toString(indent + 1);
-			ret ~= getIndent(indent) ~ "}";
-		}
-		
-		ret ~= "\n";
 		return ret;
 	}
 }

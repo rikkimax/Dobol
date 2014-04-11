@@ -81,6 +81,7 @@ enum ParseSkeletonStages : size_t {
 
 pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definitions) {
 	size_t stage = ParseSkeletonStages.Start;
+	string procedureText;
 	
 	foreach(def; definitions) {
 		string deft = def.text;
@@ -345,6 +346,7 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 						stage = ParseSkeletonStages.ProcedureDivisionSection;
 						string[] nameValues = lineA[0].split("-");
 						data.procedureDivision.sections ~= ProcedureDivisionSection(nameValues[0], lineA[0][nameValues[0].length + 1 .. $]);
+						procedureText = "";
 					} else {
 						goto case ParseSkeletonStages.Start;
 					}
@@ -358,143 +360,26 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 					auto procedure = data.procedureDivision.sections[$-1];
 					
 					if (lineA.length == 1) {
-						if (deft.length > procedure.id.length) {
-							if (deftl[0 .. procedure.id.length] == procedure.id.toLower()) {
-								// ignore
-								break;
-							}
+						if (deft.length == procedure.id.length + "-stop".length && deftl[0 .. procedure.id.length + "-stop".length] == procedure.id.toLower() ~ "-stop") {
+							handleProcedureParsing(data, procedureText);
+						} else if (deft.length == procedure.id.length + "-exit".length && deftl[0 .. procedure.id.length + "-exit".length] == procedure.id.toLower() ~ "-exit") {
+							handleProcedureParsing(data, procedureText);
+						} else if (deft.length > procedure.id.length && deftl[0 .. procedure.id.length] == procedure.id.toLower()) {
+							//ignore
+							procedureText ~= deft ~ "\n";
 						}
 						
-						ProcedureDivisionStatement statement = new ProcedureDivisionStatement();
-						
-						switch(lineAl[0]) {
-							case "stop-run":
-								statement.functionType = DobolFunctions.StopRun;
-								break;
-							case "exit":
-								statement.functionType = DobolFunctions.Exit;
-								break;
-							default:
-								break;
-						}
-						
-						if (statement.functionType == DobolFunctions.Unknown) {
-							goto case ParseSkeletonStages.ProcedureDivision;
-						}
-						
-						data.procedureDivision.sections[$-1].statements ~= statement;
-						
-					} else if (lineA.length > 1) {
+					} else if (lineA.length == 2) {
 						if (lineAl[1] == "section") {
+							if (procedureText.length > deft.length)
+								handleProcedureParsing(data, procedureText);
 							goto case ParseSkeletonStages.ProcedureDivision;
+						} else {
+							procedureText ~= deft ~ "\n";
 						}
-						
-						ProcedureDivisionStatement handleStatementGet(string op, string text) {
-							ProcedureDivisionStatement statement = new ProcedureDivisionStatement();
-							
-							switch(op) {
-								case "display":
-									statement.functionType = DobolFunctions.Display;
-									statement.args = text["display ".length .. $];
-									break;
-								case "perform":
-									statement.functionType = DobolFunctions.Perform;
-									statement.args = text["perform ".length .. $];
-									break;
-								case "open":
-									statement.functionType = DobolFunctions.Open;
-									statement.args = text["open ".length .. $];
-									break;
-								case "move":
-									statement.functionType = DobolFunctions.Move;
-									statement.args = text["move ".length .. $];
-									break;
-								case "read":
-									statement.functionType = DobolFunctions.Read;
-									statement.args = text["read ".length .. $];
-									break;
-								case "write":
-									statement.functionType = DobolFunctions.Write;
-									statement.args = text["write ".length .. $];
-									break;
-								case "add":
-									statement.functionType = DobolFunctions.Add;
-									statement.args = text["add ".length .. $];
-									break;
-								case "close":
-									statement.functionType = DobolFunctions.Close;
-									statement.args = text["close ".length .. $];
-									break;
-								case "subtract":
-									statement.functionType = DobolFunctions.Subtract;
-									statement.args = text["subtract ".length .. $];
-									break;
-								case "if":
-									statement.functionType = DobolFunctions.IfCondition;
-									
-									string args;
-									string conditionStatement;
-									bool gotVerb = false;
-									foreach(word; text["if ".length + 1 .. $].split(" ")) {
-										if (isVerb(word.toLower()))
-											gotVerb = true;
-										if (gotVerb)
-											conditionStatement ~= word ~ " ";
-										else
-											args ~= word ~ " ";
-									}
-									args.length--;
-									
-									statement.args = args;
-									
-									string temp = conditionStatement;
-									
-									string elseStatement;
-									bool gotElse = false;
-									conditionStatement = "";
-									foreach_reverse(word; temp.split(" ")) {
-										if (word.toLower() == "else")
-											gotElse = true;
-										
-										if(gotElse)
-											conditionStatement = word ~ " " ~ conditionStatement;
-										else
-											elseStatement = word ~ " " ~ elseStatement;
-									}
-									
-									if (conditionStatement == "") {
-										conditionStatement = elseStatement;
-										elseStatement = "";
-									}
-									
-									if (conditionStatement.length > 0)
-										conditionStatement.length--;
-									if (elseStatement.length > 0)
-										elseStatement.length--;
-									
-									string[] temp2 = conditionStatement.split(" ");
-									statement.conditionStatement = handleStatementGet(temp2[0].toLower(), conditionStatement);
-									
-									if (elseStatement != "") {
-										temp2 = elseStatement.split(" ");
-										statement.elseStatement = handleStatementGet(temp2[0].toLower(), elseStatement);
-									}
-									
-									break;
-								case "multiply":
-									statement.functionType = DobolFunctions.Multiply;
-									statement.args = text["multiply ".length .. $];
-									break;
-								default:
-									break;
-							}
-							
-							return statement;
-						}
-						
-						data.procedureDivision.sections[$-1].statements ~= handleStatementGet(lineAl[0], deft);
+					} else {
+						procedureText ~= deft ~ "\n";
 					}
-					
 				} else {
 					goto case ParseSkeletonStages.ProcedureDivision;
 				}
@@ -515,6 +400,172 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 				}
 				break;
 		}
+	}
+}
+
+pure void handleProcedureParsing(ref DobolProgram data, string text) {
+	string[] lines = breakIntoVerbs(text
+	                                .replace("\r\n", " ").replace("\n\r", " ")
+	                                .replace("\n", " ").replace("\r", " ")
+	                                ).notEmptyElements();
+	
+	ProcedureDivisionStatement currentCondition;
+	bool trueConditionStage;
+	
+	ProcedureDivisionSection procedureDivision = data.procedureDivision.sections[$-1];
+	
+	void addStatement(ProcedureDivisionStatement statement) {
+		if (statement.type == StatementTypes.IfCondition) {
+			if (currentCondition is null) {
+				currentCondition = statement;
+				data.procedureDivision.sections[$-1].statements ~= statement;
+				trueConditionStage = true;
+			} else {
+				if (trueConditionStage) {
+					currentCondition.conditionStatement ~= statement;
+				} else {
+					currentCondition.elseStatement ~= statement;
+				}
+				currentCondition = statement;
+				trueConditionStage = true;
+			}
+			
+			return;
+		} else if (statement.type == StatementTypes.Unknown)
+			return;
+		
+		if (currentCondition is null) {
+			data.procedureDivision.sections[$-1].statements ~= statement;
+		} else {
+			if (trueConditionStage) {
+				currentCondition.conditionStatement ~= statement;
+			} else {
+				currentCondition.elseStatement ~= statement;
+			}
+		}
+	}
+	
+	foreach(i, deft; lines) {
+		string deftl = deft.toLower();
+		string[] lineA = deft.split(" ");
+		string[] lineAl = deftl.split(" ");
+		
+		if (i == 0) {
+			if (!isVerb(lineA[0])) {
+				continue;
+			}
+		}
+		
+		ProcedureDivisionStatement statement = new ProcedureDivisionStatement();
+		statement.previousCondition = currentCondition;
+		
+		if (lineA.length > 0) {
+			bool nothing;
+			bool removeFirstArg;
+			
+			if (lineAl[0] == "exit") {
+				statement.type = StatementTypes.Exit;	
+			} else if (lineAl[0] == "stop-run") {
+				statement.type = StatementTypes.StopRun;
+			} else if (lineAl[0] == "end-if") {
+				statement.type = StatementTypes.Endif;
+				if (currentCondition !is null) {
+					currentCondition = currentCondition.previousCondition;
+				}
+			} else if (lineAl[0] == "else") {
+				trueConditionStage = false;
+				continue;
+			} else if (lineA[0].length > procedureDivision.id.length && lineA[0][0 .. procedureDivision.id.length] == procedureDivision.id) {
+				removeFirstArg = true;
+				nothing = true;
+			} else {
+				nothing = true;
+			}
+			
+			if (!nothing) {
+				addStatement(statement);
+				if (lineA.length > 1) {
+					statement = new ProcedureDivisionStatement();
+					statement.previousCondition = currentCondition;
+				} else {
+					continue;
+				}
+			}
+			
+			if (removeFirstArg || !nothing) {
+				deft = deft[(lineA[0].length + 1) .. $];
+				deftl = deftl[(lineA[0].length + 1) .. $];
+				lineA = lineA[1 .. $];
+				lineAl = lineAl[1 .. $];
+			}
+		}
+		
+		if (lineA.length == 2) {
+			if (lineAl[1] == "section") {
+				continue;
+			}
+		} else if (lineA.length == 3) {
+			if (lineA[0].length > procedureDivision.id.length && lineA[0][0 .. procedureDivision.id.length] == procedureDivision.id && lineAl[2] == "section") {
+				continue;
+			}
+		}
+		
+		if (lineA.length > 1) {
+			switch(lineAl[0]) {
+				case "display":
+					statement.type = StatementTypes.Display;
+					statement.args = deft["display ".length .. $];
+					break;
+				case "perform":
+					statement.type = StatementTypes.Perform;
+					statement.args = deft["perform ".length .. $];
+					break;
+				case "open":
+					statement.type = StatementTypes.Open;
+					statement.args = deft["open ".length .. $];
+					break;
+				case "move":
+					statement.type = StatementTypes.Move;
+					statement.args = deft["move ".length .. $];
+					break;
+				case "read":
+					statement.type = StatementTypes.Read;
+					statement.args = deft["read ".length .. $];
+					break;
+				case "write":
+					statement.type = StatementTypes.Write;
+					statement.args = deft["write ".length .. $];
+					break;
+				case "add":
+					statement.type = StatementTypes.Add;
+					statement.args = deft["add ".length .. $];
+					break;
+				case "close":
+					statement.type = StatementTypes.Close;
+					statement.args = deft["close ".length .. $];
+					break;
+				case "subtract":
+					statement.type = StatementTypes.Subtract;
+					statement.args = deft["subtract ".length .. $];
+					break;
+				case "multiply":
+					statement.type = StatementTypes.Multiply;
+					statement.args = deft["multiply ".length .. $];
+					break;
+				case "if":
+					statement.type = StatementTypes.IfCondition;
+					statement.args = deft["if ".length .. $];
+					break;
+				default:
+					debug {
+						import std.stdio;
+						writeln(deft);
+					}
+					break;
+			}
+		}
+		
+		addStatement(statement);
 	}
 }
 
@@ -627,7 +678,7 @@ private {
 					ret ~= l ~ " ";
 			}
 			
-			if (ret[$-1] == ' ')
+			if (ret.length > 0 && ret[$-1] == ' ')
 				ret.length--;
 			
 			ret ~= "\n";
@@ -638,6 +689,8 @@ private {
 	
 	pure bool isVerb(string text) {
 		switch(text) {
+			case "end-if":
+			case "else":
 			case "multiply":
 			case "if":
 			case "close":
@@ -656,5 +709,67 @@ private {
 			default:
 				return false;
 		}
+	}
+	
+	pure string[] breakIntoVerbs(string text) {
+		string[] ret;
+		string temp;
+		
+		bool quoted = false;
+		
+		foreach(word; text.split(" ")) {
+			if (word == "") continue;
+			if (word.length > 1 && word[0] == '"')
+				quoted = true;
+			else if (word[0] == '"')
+				quoted = !quoted;
+			
+			if (!quoted && isVerb(word.toLower())) {
+				if (temp.length > 0) {
+					ret ~= temp[0 .. $-1];
+				}
+				temp = word ~ " ";
+			} else if (word[$-1] == '.') {
+				ret ~= temp ~ word;
+				temp = "";
+			} else {
+				temp ~= word ~ " ";
+			}
+			
+			if (word.length > 1 && word[$-1] == '"')
+				quoted = false;
+			else if (word.length > 2 && word[$-2 .. $] == "\".")
+				quoted = false;
+		}
+		
+		if (temp != "")
+			ret ~= temp;
+		
+		return ret;
+	}
+	
+	unittest {
+		string text = """
+DISPLAY \"PRINT-FIRST-LINE\".
+ADD 1 TO WA-PAGE-COUNT.
+MOVE WA-PAGE-COUNT TO WC-L2-PAGE-NO.
+MOVE WC-LINE2 TO OUTPUT-REC.
+WRITE OUTPUT-REC AFTER NEW-PAGE.
+
+IF NOT WB-MORTGAGE-NOT-POSS
+   ADD IR-MORTGAGE   TO WG-TOTAL-MORTGAGE.
+END-IF."""
+			.replace("\r\n", " ").replace("\n\r", " ")
+				.replace("\n", " ").replace("\r", " ");
+		string[] output = breakIntoVerbs(text);
+		
+		assert(output[0] == "DISPLAY \"PRINT-FIRST-LINE\".");
+		assert(output[1] == "ADD 1 TO WA-PAGE-COUNT.");
+		assert(output[2] == "MOVE WA-PAGE-COUNT TO WC-L2-PAGE-NO.");
+		assert(output[3] == "MOVE WC-LINE2 TO OUTPUT-REC.");
+		assert(output[4] == "WRITE OUTPUT-REC AFTER NEW-PAGE.");
+		assert(output[5] == "IF NOT WB-MORTGAGE-NOT-POSS");
+		assert(output[6] == "ADD IR-MORTGAGE TO WG-TOTAL-MORTGAGE.");
+		assert(output[7] == "END-IF.");
 	}
 }
