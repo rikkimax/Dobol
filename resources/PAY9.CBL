@@ -203,7 +203,8 @@
            MOVE "N" TO WB-UNION-IND, WB-MORTGAGE-IND.
            ADD 1 TO WA-EMPLOYEE-COUNT.
            IF WA-LINE-COUNT > 12 
-               PERFORM 3B-PRINT-HEADINGS.
+               PERFORM 3B-PRINT-HEADINGS
+		
            PERFORM 4A-CALC-VALUES.
            PERFORM 4B-SETUP-LINE.
            PERFORM 4D-ACCUM-TOTALS.
@@ -235,11 +236,13 @@
            IF IR-UNION NOT > WF-NETT
                SUBTRACT IR-UNION FROM WF-NETT
            ELSE 
-               MOVE "Y" TO WB-UNION-IND.
+               MOVE "Y" TO WB-UNION-IND
+		   END-IF.
            IF IR-MORTGAGE NOT > WF-NETT
                SUBTRACT IR-MORTGAGE FROM WF-NETT
            ELSE 
-               MOVE "Y" TO WB-MORTGAGE-IND.
+               MOVE "Y" TO WB-MORTGAGE-IND
+		   END-IF.
            DISPLAY "GROSS = " WF-GROSS.
        4A-EXIT.
            EXIT.
@@ -253,10 +256,13 @@
                MOVE "  *****"               TO OR-UNION-X
            ELSE
                MOVE IR-UNION             TO OR-UNION.
+               MOVE IR-UNION             TO OR-UNION
+		   END-IF.
            IF WB-MORTGAGE-NOT-POSS
                MOVE "  *****"               TO OR-MORTGAGE-X
            ELSE
                MOVE IR-MORTGAGE          TO OR-MORTGAGE.
+		   END-IF.
            MOVE WF-GROSS                TO OR-GROSS.
            MOVE WF-TAX                  TO OR-TAX.
            MOVE WF-NETT                 TO OR-NETT.
@@ -268,14 +274,17 @@
            DISPLAY "4C-ACCUM-TOTALS".
            ADD 1 TO WG-TOTAL-EMPLOYEES.
            IF NOT WB-UNION-NOT-POSS
-               ADD IR-UNION   TO WG-TOTAL-UNION.
+               ADD IR-UNION   TO WG-TOTAL-UNION
+		   END-IF
            IF NOT WB-MORTGAGE-NOT-POSS
-               ADD IR-MORTGAGE   TO WG-TOTAL-MORTGAGE.
+               ADD IR-MORTGAGE   TO WG-TOTAL-MORTGAGE
+		   END-IF
            ADD WF-GROSS      TO WG-TOTAL-NETT.
            ADD WF-NETT       TO WG-TOTAL-GROSS.
            ADD WF-TAX        TO WG-TOTAL-TAX.
            IF WB-UNION-NOT-POSS OR WB-MORTGAGE-NOT-POSS
-               ADD 1 TO WG-TOTAL-EXCEPTIONS.
+               ADD 1 TO WG-TOTAL-EXCEPTIONS
+		   END-IF
        4C-EXIT.
            EXIT.
 
@@ -313,7 +322,7 @@
            ADD 1 TO WA-PAGE-COUNT.
            MOVE WA-PAGE-COUNT TO WC-L2-PAGE-NO.
            MOVE WC-LINE2 TO OUTPUT-REC.
-           WRITE OUTPUT-REC AFTER NEW-PAGE
+           WRITE OUTPUT-REC AFTER NEW-PAGE.
        5A-EXIT.
            EXIT.
 
