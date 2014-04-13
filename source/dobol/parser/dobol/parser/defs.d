@@ -1,5 +1,6 @@
 ﻿module dobol.parser.defs;
 import dobol.parser.handler;
+public import dobol.parser.handler : parseDobol = handleDobolParsing;
 import std.conv : to;
 
 struct DobolProgram {
@@ -139,6 +140,25 @@ struct FileSectionEntry {
 		
 		return ret;
 	}
+	
+	pure FileSectionRecordEntry[] filterOnNameLevel(string name) {
+		FileSectionRecordEntry[] ret;
+		
+		bool got;
+		size_t level;
+		
+		foreach(record; records) {
+			if (got) {
+				if (record.level <= level) break;
+				ret ~= record;
+			} else if (record.name == name) {
+				got = true;
+				level = record.level;
+			}
+		}
+		
+		return ret;
+	}
 }
 
 struct FileSectionRecordEntry {
@@ -221,6 +241,17 @@ class ProcedureDivisionStatement {
 	ProcedureDivisionStatement[] conditionStatement;
 	ProcedureDivisionStatement[] elseStatement;
 	
+	union {
+		OpenStatement open;
+		PerformStatement perform;
+		MoveStatement move;
+		ReadStatement read;
+		WriteStatement write;
+		AddStatement add;
+		SubtractStatement subtract;
+		MultiplyStatement multiply;
+	}
+	
 	string toString(size_t indent = 0) {
 		string ret;
 		if (type != StatementTypes.Endif) {
@@ -254,8 +285,51 @@ class ProcedureDivisionStatement {
 	}
 }
 
-void parseDobol(ref DobolProgram data) {
-	handleDobolParsing(data);
+struct OpenStatement {
+	string filename; 
+	
+	bool isInput;
+	bool isOutput;
+}
+
+struct PerformStatement {
+	string funcname;
+	
+	string untilCondition;
+}
+
+struct MoveStatement {
+	string fromval;
+	string toval;
+}
+
+struct ReadStatement {
+	string toval;
+	
+	bool hasOnEnd;
+	ProcedureDivisionStatement onEnd;
+}
+
+struct WriteStatement {
+	string fromval;
+	string afterVal;
+}
+
+struct AddStatement {
+	string fromval;
+	string toval;
+}
+
+struct SubtractStatement {
+	string fromval;
+	string toval;
+	string givingval;
+}
+
+struct MultiplyStatement {
+	string fromval;
+	string byval;
+	string givingval;
 }
 
 /**

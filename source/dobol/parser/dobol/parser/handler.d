@@ -263,7 +263,7 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 							
 							if (lineA.length > 4) {
 								if (lineAl[4] == "redefines") {
-									entry.redefines = lineAl[5];
+									entry.redefines = lineA[5];
 								} else if (lineAl[4] == "comp") {
 									entry.isComp = true;
 								}
@@ -412,6 +412,8 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 	ProcedureDivisionStatement currentCondition;
 	bool trueConditionStage;
 	
+	ProcedureDivisionStatement readStatement;
+	
 	ProcedureDivisionSection procedureDivision = data.procedureDivision.sections[$-1];
 	
 	void addStatement(ProcedureDivisionStatement statement) {
@@ -431,10 +433,14 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 			}
 			
 			return;
-		} else if (statement.type == StatementTypes.Unknown)
+		} else if (statement.type == StatementTypes.Unknown) {
 			return;
+		}
 		
-		if (currentCondition is null) {
+		if (readStatement !is null) {
+			readStatement.read.onEnd = statement;
+			readStatement = null;
+		} else if (currentCondition is null) {
 			data.procedureDivision.sections[$-1].statements ~= statement;
 		} else {
 			if (trueConditionStage) {
@@ -442,6 +448,11 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 			} else {
 				currentCondition.elseStatement ~= statement;
 			}
+		}
+		
+		if (statement.type == StatementTypes.Read) {
+			if (statement.read.hasOnEnd)
+				readStatement = statement;
 		}
 	}
 	
@@ -518,27 +529,27 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 					break;
 				case "perform":
 					statement.type = StatementTypes.Perform;
-					statement.args = deft["perform ".length .. $];
+					handlePerformStatement(statement, deft);
 					break;
 				case "open":
 					statement.type = StatementTypes.Open;
-					statement.args = deft["open ".length .. $];
+					handleOpenStatement(statement, deft);
 					break;
 				case "move":
 					statement.type = StatementTypes.Move;
-					statement.args = deft["move ".length .. $];
+					handleMoveStatement(statement, deft);
 					break;
 				case "read":
 					statement.type = StatementTypes.Read;
-					statement.args = deft["read ".length .. $];
+					handleReadStatement(statement, deft);
 					break;
 				case "write":
 					statement.type = StatementTypes.Write;
-					statement.args = deft["write ".length .. $];
+					handleWriteStatement(statement, deft);
 					break;
 				case "add":
 					statement.type = StatementTypes.Add;
-					statement.args = deft["add ".length .. $];
+					handleAddStatement(statement, deft);
 					break;
 				case "close":
 					statement.type = StatementTypes.Close;
@@ -546,11 +557,11 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 					break;
 				case "subtract":
 					statement.type = StatementTypes.Subtract;
-					statement.args = deft["subtract ".length .. $];
+					handleSubtractStatement(statement, deft);
 					break;
 				case "multiply":
 					statement.type = StatementTypes.Multiply;
-					statement.args = deft["multiply ".length .. $];
+					handleMultiplyStatement(statement, deft);
 					break;
 				case "if":
 					statement.type = StatementTypes.IfCondition;
@@ -566,6 +577,125 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 		}
 		
 		addStatement(statement);
+	}
+}
+
+pure void handlePerformStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["peform ".length .. $].strip();
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.perform.funcname = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "until") {
+			statement.perform.untilCondition = lineA[2];
+		}
+	}
+}
+
+pure void handleOpenStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["open ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	if (lineA.length == 2) {
+		statement.open.filename = lineA[1];
+		statement.open.isInput = lineA[0].toLower() == "input";
+		statement.open.isOutput = lineA[0].toLower() == "output";
+	}
+}
+
+pure void handleMoveStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["move ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "to") {
+			statement.move.fromval = lineA[0];
+			statement.move.toval = lineA[2];
+		}
+	}
+}
+
+pure void handleReadStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["read ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.read.toval = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		statement.read.hasOnEnd = lineA[1].toLower() == "at" && lineA[2].toLower() == "end";
+	}
+}
+
+pure void handleWriteStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["write ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.write.fromval = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "after") {
+			statement.write.afterVal = lineA[2];
+		}
+	}
+}
+
+pure void handleAddStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["add ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.add.fromval = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "to") {
+			statement.add.toval = lineA[2];
+		}
+	}
+}
+
+pure void handleSubtractStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["subtract ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.subtract.fromval = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "from") {
+			statement.subtract.toval = lineA[2];
+		}
+	} else if (lineA.length == 5) {
+		if (lineA[1].toLower() == "from" && lineA[3].toLower() == "giving") {
+			statement.subtract.toval = lineA[2];
+			statement.subtract.givingval = lineA[4];
+		}
+	}
+}
+
+pure void handleMultiplyStatement(ProcedureDivisionStatement statement, string text) {
+	statement.args = text["multiply ".length .. $];
+	string[] lineA = statement.args.split(" ").notEmptyElements();
+	
+	if (lineA.length > 0) {
+		statement.multiply.fromval = lineA[0];
+	}
+	
+	if (lineA.length == 3) {
+		if (lineA[1].toLower() == "by") {
+			statement.multiply.byval = lineA[2];
+		}
+	} else if (lineA.length == 5) {
+		if (lineA[1].toLower() == "by" && lineA[3].toLower() == "giving") {
+			statement.multiply.byval = lineA[2];
+			statement.multiply.givingval = lineA[4];
+		}
 	}
 }
 

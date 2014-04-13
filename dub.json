@@ -9,7 +9,17 @@
 		{
 			"name": "parser",
 			"sourcePaths": ["source/dobol/parser"],
-			"stringImportPaths": ["resources"]
+			"stringImportPaths": ["resources"],
+			"targetType": "library"
+		},
+		{
+			"name": "generator-d",
+			"sourcePaths": ["source/dobol/generator-d", "source/dobol/parser"],
+			"stringImportPaths": ["resources"],
+			"targetType": "executable",	
+			"dependencies": {
+				"dobol:parser": "~master"
+			}
 		}
 	]
 }
