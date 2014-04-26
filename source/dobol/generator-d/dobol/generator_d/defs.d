@@ -121,15 +121,15 @@ pure void handleFileDataDivision(ref DobolProgram data, ref string output, ref s
 		
 		// check types of variables
 		// if wrong make correct
-		/*output ~= getIndent(1) ~ "void validate" ~ transformName(entry.name) ~ "() {\n";
+		/*output ~= "void validate" ~ transformName(entry.name) ~ "() {\n";
 		 validateFuncs ~= getIndent(1) ~ "validate" ~ transformName(entry.name) ~ "();\n";
 		 foreach(record; entry.records) {
 		 if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
-		 output ~= validateAgainstNameType(transformName(record.name), record.type, 2);
+		 output ~= validateAgainstNameType(transformName(record.name), record.type, 1);
 		 output ~= "\n";
 		 }
 		 }
-		 output ~= getIndent(1) ~ "}\n";*/
+		 output ~= "}\n";*/
 	}
 	
 	if (data.dataDivision.fileSectionEntries.length > 0)
