@@ -1,9 +1,13 @@
 module dobol.generator_d.defs;
 import dobol.parser.defs;
-import std.string : toLower;
+import std.string : toLower, indexOf;
+import std.conv : to;
 
 pure string generatedDcode(ref DobolProgram data) {
 	string ret;
+	string validateFuncs;
+	
+	ret ~= "import std.stdio : writeln;\n";
 	
 	ret ~= "/**\n";
 	ret ~= " * " ~ headerLine();
@@ -25,12 +29,16 @@ pure string generatedDcode(ref DobolProgram data) {
 	
 	ret ~= "\n";
 	
-	handleDataDivision(data, ret);
+	handleFileDataDivision(data, ret, validateFuncs);
+	handleWorkingDataDivision(data, ret, validateFuncs);
+	handleProcedures(data, ret);
+	
+	ret ~= "void validate() {\n" ~ validateFuncs ~ "}\n";
 	
 	return ret;
 }
 
-pure void handleDataDivision(ref DobolProgram data, ref string output) {
+pure void handleFileDataDivision(ref DobolProgram data, ref string output, ref string validateFuncs) {
 	foreach(spn; data.environmentDivision.specialNames) {
 		bool gotDevice;
 		foreach(device; __traits(allMembers, DobolSystemDevices)) {
@@ -51,14 +59,16 @@ pure void handleDataDivision(ref DobolProgram data, ref string output) {
 		output ~= "\n";
 	
 	foreach(entry; data.dataDivision.fileSectionEntries) {
-		output ~= "struct " ~ transformName(entry.name) ~ " {\n";
 		bool outerGot;
 		
 		outerGot = false;
 		foreach(record; entry.records) {
 			if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
 				outerGot = true;
-				output ~= getIndent(1) ~ "string " ~ transformName(record.name) ~ ";\n";
+				if (record.value == "")
+					output ~= getIndent(1) ~ "string " ~ transformName(record.name) ~ ";\n";
+				else
+					output ~= getIndent(1) ~ "string " ~ transformName(record.name) ~ " = \"" ~ record.value ~ "\";\n";
 			}
 		}
 		
@@ -105,18 +115,167 @@ pure void handleDataDivision(ref DobolProgram data, ref string output) {
 		
 		// check types of variables
 		// if wrong make correct
-		output ~= getIndent(1) ~ "void validate() {\n";
+		output ~= getIndent(1) ~ "void validate" ~ transformName(entry.name) ~ "() {\n";
+		validateFuncs ~= getIndent(1) ~ "validate" ~ transformName(entry.name) ~ "();\n";
 		foreach(record; entry.records) {
 			if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
 				output ~= validateAgainstNameType(transformName(record.name), record.type, 2);
+				output ~= "\n";
 			}
 		}
 		output ~= getIndent(1) ~ "}\n";
+	}
+	
+	if (data.dataDivision.fileSectionEntries.length > 0)
+		output ~= "\n";
+}
+
+pure void handleWorkingDataDivision(ref DobolProgram data, ref string output, ref string validateFuncs) {
+	string[] levelNames;
+	size_t[] levelValues;
+	string[][string[]] entriesLevelNames;
+	string[] entryNames;
+	string[] entryTypes;
+	
+	foreach(i, entry; data.dataDivision.workerStorageSectionEntries) {
+		void updateLevels() {
+			string[] newLevelNames;
+			size_t[] newLevelValues;
+			
+			if (levelValues.length == 0) {
+				newLevelNames ~= entry.name;
+				newLevelValues ~= entry.level;
+			} else {
+				foreach(i, levelValue; levelValues) {
+					if (levelValue < entry.level) {
+						newLevelValues ~= levelValue;
+						newLevelNames ~= levelNames[i];
+					} else {
+						// >=
+						newLevelValues ~= entry.level;
+						newLevelNames ~= entry.name;
+						break;
+					}
+				}
+			}
+			
+			levelNames = newLevelNames;
+			levelValues = newLevelValues;
+		}
+		
+		if (entry.type != "" && entry.name != "FILLER") {
+			if (cast(immutable)levelNames in entriesLevelNames)
+				entriesLevelNames[cast(immutable)levelNames] ~= entry.name;
+			else {
+				entriesLevelNames[cast(immutable)levelNames] = [entry.name];
+			}
+			entryNames ~= entry.name;
+			entryTypes ~= entry.type;
+			
+			if (entry.redefines == "") {
+				if (entry.value == "")
+					output ~= "string " ~ transformName(entry.name) ~ ";\n";
+				else if (entry.value[0] == '\"' && entry.value[$-1] == '\"')
+					output ~= "string " ~ transformName(entry.name) ~ " = " ~ entry.value ~ ";\n";
+				else
+					output ~= "string " ~ transformName(entry.name) ~ " = \"" ~ entry.value ~ "\";\n";
+			} else {
+				output ~= "alias " ~ transformName(entry.name) ~ " = " ~ transformName(entry.redefines) ~ ";\n";
+			}
+		} else if (entry.type == "")
+			updateLevels();
+	}
+	
+	if (entriesLevelNames.keys.length > 0)
+		output ~= "\n";
+	
+	foreach(newprop; entriesLevelNames.keys) {
+		if (entriesLevelNames[newprop].length == 0) {
+			//pragma(msg, entriesLevelNames[newprop], " has no values");
+			continue;
+		}
+		output ~= "@property string " ~ transformName(newprop[$-1]) ~ "() {\n";
+		output ~= getIndent(1) ~ "return ";
+		
+		foreach(prop; entriesLevelNames[newprop]) {
+			output ~= transformName(prop) ~ " ~ ";
+		}
+		output.length -= 3;
+		
+		output ~="; }\n";
+	}
+	
+	if (entriesLevelNames.keys.length > 0)
+		output ~= "\n";
+	
+	output ~= "void validateWorkingDataDivison() {\n";
+	validateFuncs ~= getIndent(1) ~ "validateWorkingDataDivison();\n";
+	foreach(i, name; entryNames) {
+		output ~= validateAgainstNameType(transformName(name), entryTypes[i], 1);
+		output ~= "\n";
+	}
+	
+	if (entryNames.length > 0) {
+		output ~= "}\n";
+	}
+	
+	if (data.dataDivision.workerStorageSectionEntries.length > 0)
+		output ~= "\n";
+}
+
+pure void handleProcedures(ref DobolProgram data, ref string output) {
+	foreach(procedure; data.procedureDivision.sections) {
+		output ~= "void " ~ transformName(procedure.name) ~ "() {\n";
+		
+		foreach(statement; procedure.statements) {
+			switch(statement.type) {
+				case StatementTypes.Display:
+					output ~= getIndent(1) ~ "writeln(";
+					
+					bool isInQuoted;
+					
+					foreach(i, arg; statement.args.split(" ")) {
+						if (arg[0] == '\"' && !isInQuoted)
+							isInQuoted = true;
+						
+						if (isInQuoted) {
+							output ~= arg;
+						} else {
+							output ~= transformName(arg);
+						}
+						
+						if (arg[$-1] == '\"')
+							isInQuoted = false;
+						else if (isInQuoted)
+							output ~= " ";
+						
+						if (i + 1 < statement.args.split(" ").length && !isInQuoted)
+							output ~= " ~ ";
+					}
+					
+					output ~= ");\n";
+					break;
+				case StatementTypes.Perform:
+					// ugh how does statement.perform.untilCondition work?
+					output ~= getIndent(1) ~ transformName(statement.perform.funcname[procedure.id.length + 1 .. $]) ~ "();\n";
+					break;
+				case StatementTypes.Open:
+				case StatementTypes.Move:
+				case StatementTypes.Read:
+				case StatementTypes.Write:
+				case StatementTypes.IfCondition:
+				case StatementTypes.Multiply:
+				case StatementTypes.Add:
+				case StatementTypes.Subtract:
+				default:
+					break;
+			}
+		}
 		
 		output ~= "}\n\n";
 	}
 	
-	if (data.dataDivision.fileSectionEntries.length > 0)
+	if (data.procedureDivision.sections.length > 0)
 		output ~= "\n";
 }
 
@@ -138,19 +297,76 @@ pure string transformName(string name) {
 
 pure string validateAgainstNameType(string name, string type, size_t indentOffset) {
 	string ret;
+	ret ~= getIndent(indentOffset) ~ "assert(" ~ name ~ ".length == " ~ to!string(type.length) ~ ", \"Invalid data for " ~ name ~ " on type " ~ type ~ "\");\n";
 	
-	if (type.length > 3 && type[0 .. 2].toLower() == "x(" && type[$-1] == ')') {
-		ret ~= getIndent(indentOffset) ~ "if (" ~ name ~ ".length != " ~ type[2 .. $-1] ~ ") {\n";
+	bool assumeNextIs9 = false;
+	
+	//S999
+	//X(12)
+	//S9(6)V99
+	void iterate(char c, ref size_t i) {
+		switch(c) {
+			case 'S':
+				ret ~= getIndent(indentOffset) ~ "assert(" ~ name ~ "[" ~ to!string(i) ~ "] == '-' && " ~ name ~ "[" ~ to!string(i) ~ "] == ' ', \"Invalid data for " ~ name ~ " on type " ~ type ~ "\");\n";
+				i++;
+				assumeNextIs9 = true;
+				goto case '9';
+			case '9':
+				// must be a number
+				ret ~= getIndent(indentOffset) ~ "assert((cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) >= cast(ubyte)'0' && (cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) <= cast(ubyte)'9', \"Invalid data for " ~ name ~ " on type " ~ type ~ "\");\n";
+				break;
+			case 'V':
+				// must be a dot
+				ret ~= getIndent(indentOffset) ~ "assert(" ~ name ~ "[" ~ to!string(i) ~ "] == '.');\n";
+				break;
+			case '.':
+			case 'X':
+				// can be anything
+				// so do nothing
+				break;
+			case 'Z':
+				// can be a letter
+				ret ~= getIndent(indentOffset) ~ "assert(((cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) >= cast(ubyte)'A' && (cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) <= cast(ubyte)'Z') || ((cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) >= cast(ubyte)'a' && (cast(ubyte)(" ~ name ~ "[" ~ to!string(i) ~ "])) <= cast(ubyte)'z'), \"Invalid data for " ~ name ~ " on type " ~ type ~ "\");\n";
+				break;
+			default:
+				break;
+		}
+	}
+	
+	bool isBracketed;
+	char lastFromBracketed;
+	char last;
+	string lengthFromBracketedText;
+	bool wasBracketed;
+	size_t index;
+	
+	foreach(c; type) {
+		if (assumeNextIs9) {
+			assert(c == '9', "S can only be procedded by a 9");
+			assumeNextIs9 = false;
+		}
+		if (isBracketed) {
+			if (c == ')') {
+				isBracketed = false;
+				wasBracketed = true;
+			} else
+				lengthFromBracketedText ~= c;
+		} else if (c == '(') {
+			isBracketed = true;
+			lengthFromBracketedText = "";
+			lastFromBracketed = last;
+		} else if (wasBracketed) {
+			for (size_t i = 0; i < to!size_t(lengthFromBracketedText); i++) {
+				iterate(lastFromBracketed, index);
+				index++;
+			}
+		} else {
+			iterate(c, index);
+			index++;
+		}
 		
-		ret ~= getIndent(indentOffset + 1) ~ "if (" ~ name ~ ".length < " ~ type[2 .. $-1] ~ ") {\n";
-		ret ~= getIndent(indentOffset + 2) ~ name ~ " ~= dobolSpaceCreator(" ~ type[2 .. $-1] ~ " - " ~ name ~ ".length);\n";
-		ret ~= getIndent(indentOffset + 1) ~ "} else {\n";
-		ret ~= getIndent(indentOffset + 2) ~ name ~ ".length = " ~ type[2 .. $-1] ~ ";\n";
-		ret ~= getIndent(indentOffset + 1) ~ "}\n";
-		
-		ret ~= getIndent(indentOffset) ~ "}\n";
-	} else {
-		
+		if (c != '(' && c != ')')
+			last = c;
 	}
 	
 	return ret;
@@ -217,6 +433,54 @@ private {
 		assert(replace("Hello World!", "!", "#") == "Hello World#");
 	}
 	
+	pure string[] split(string text, string[] delimaters...) {
+		string[] ret;
+		ptrdiff_t i;
+		while((i = min(text.indexOfs(delimaters))) >= 0) {
+			ret ~= text[0 .. i];
+			text = text[i + lengthOfIndex(text, i, delimaters) .. $];
+		}
+		if (text.length > 0) {
+			ret ~= text;	
+		}
+		return ret;
+	}
+	
+	unittest {
+		string test = "abcd|efgh|ijkl";
+		assert(test.split("|") == ["abcd", "efgh", "ijkl"]);
+		string test2 = "abcd||efgh||ijkl";
+		assert(test2.split("||") == ["abcd", "efgh", "ijkl"]);
+	}
+	
+	pure size_t[] indexOfs(string text, string[] delimiters) {
+		size_t[] ret;
+		
+		foreach(delimiter; delimiters) {
+			ret ~= text.indexOf(delimiter);
+		}
+		
+		return ret;
+	}
+	
+	pure size_t lengthOfIndex(string text, size_t index, string[] delimiters) {
+		foreach(delimiter; delimiters) {
+			if (text.indexOf(delimiter) == index) return delimiter.length;
+		}
+		assert(0);
+	}
+	
+	pure size_t min(size_t[] nums...) {
+		size_t ret = size_t.max;
+		
+		foreach(i; nums) {
+			if (i < ret) {
+				ret = i;
+			}
+		}
+		
+		return ret;
+	}
 	
 	/**
 	 * Helpers

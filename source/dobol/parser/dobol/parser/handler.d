@@ -371,8 +371,8 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 						
 					} else if (lineA.length == 2) {
 						if (lineAl[1] == "section") {
-							if (procedureText.length > deft.length)
-								handleProcedureParsing(data, procedureText);
+							//if (procedureText.length > deft.length)
+							//handleProcedureParsing(data, procedureText);
 							goto case ParseSkeletonStages.ProcedureDivision;
 						} else {
 							procedureText ~= deft ~ "\n";
@@ -480,9 +480,10 @@ pure void handleProcedureParsing(ref DobolProgram data, string text) {
 				statement.type = StatementTypes.StopRun;
 			} else if (lineAl[0] == "end-if") {
 				statement.type = StatementTypes.Endif;
-				if (currentCondition !is null) {
+				if (currentCondition !is null && currentCondition.previousCondition !is null)
 					currentCondition = currentCondition.previousCondition;
-				}
+				else if (currentCondition !is null)
+					currentCondition = null;
 			} else if (lineAl[0] == "else") {
 				trueConditionStage = false;
 				continue;
@@ -799,14 +800,20 @@ private {
 	pure string removeComments(string text) {
 		string ret;
 		
-	L1: foreach(line; text.split("\r\n", "\n\r", "\n", "\r")) {
+		foreach(line; text.split("\r\n", "\n\r", "\n", "\r")) {
 			string[] lineA = line.strip().split(" ");
+			bool shouldContinue = false;
+			
 			foreach (l; lineA) {
-				if (l == "*")
-					continue L1;
-				else
+				if (l == "*") {
+					shouldContinue = true;
+					break;
+				} else
 					ret ~= l ~ " ";
 			}
+			
+			if (shouldContinue)
+				continue;
 			
 			if (ret.length > 0 && ret[$-1] == ' ')
 				ret.length--;
