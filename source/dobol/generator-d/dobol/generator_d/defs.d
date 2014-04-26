@@ -12,12 +12,18 @@ pure string generatedDcode(ref DobolProgram data) {
 	ret ~= "/**\n";
 	ret ~= " * " ~ headerLine();
 	
-	ret ~= " *  Program: \t\t" ~ data.id ~ "\n";
-	ret ~= " *  Author: \t\t" ~ data.author ~ "\n";
-	ret ~= " *  Installation: \t" ~ data.installation ~ "\n";
-	ret ~= " *  Date_Written: \t" ~ data.date_written ~ "\n";
-	ret ~= " *  Date_Compiled: \t" ~ data.date_compiled ~ "\n";
-	ret ~= " *  Security: \t\t" ~ data.security ~ "\n";
+	if (data.id != "")
+		ret ~= " *  Program: \t\t" ~ data.id ~ "\n";
+	if (data.author != "")
+		ret ~= " *  Author: \t\t" ~ data.author ~ "\n";
+	if (data.installation != "")
+		ret ~= " *  Installation: \t" ~ data.installation ~ "\n";
+	if (data.date_written != "")
+		ret ~= " *  Date_Written: \t" ~ data.date_written ~ "\n";
+	if (data.date_compiled != "")
+		ret ~= " *  Date_Compiled: \t" ~ data.date_compiled ~ "\n";
+	if (data.security != "")
+		ret ~= " *  Security: \t\t" ~ data.security ~ "\n";
 	ret ~= " *  Generated: \t\t" ~ __TIMESTAMP__ ~ "\n";
 	ret ~= " *\n";
 	
