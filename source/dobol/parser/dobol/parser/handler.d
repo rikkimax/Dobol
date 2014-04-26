@@ -325,15 +325,18 @@ pure void parseDobolSkeleton(ref DobolProgram data, SkeletalDefinition[] definit
 						}
 					}
 					
-					if (lineA.length > 5) {
-						if (lineAl[4] == "value") {
-							
+					if ((lineA.length > 3 && lineAl[2] == "value") || (lineA.length > 5 && lineAl[4] == "value")) {
+						if (lineAl[2] == "value") {
+							foreach(v; lineA[3 .. $]) {
+								entry.value ~= v ~ " ";
+							}
+						} else {
 							foreach(v; lineA[5 .. $]) {
 								entry.value ~= v ~ " ";
 							}
-							if (entry.value.length > 0)
-								entry.value.length--;
 						}
+						if (entry.value.length > 0)
+							entry.value.length--;
 					}
 				}
 				

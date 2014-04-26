@@ -33,7 +33,7 @@ pure string generatedDcode(ref DobolProgram data) {
 	handleWorkingDataDivision(data, ret, validateFuncs);
 	handleProcedures(data, ret);
 	
-	ret ~= "void validate() {\n" ~ validateFuncs ~ "}\n";
+	//ret ~= "void validate() {\n" ~ validateFuncs ~ "}\n";
 	
 	return ret;
 }
@@ -66,9 +66,9 @@ pure void handleFileDataDivision(ref DobolProgram data, ref string output, ref s
 			if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
 				outerGot = true;
 				if (record.value == "")
-					output ~= getIndent(1) ~ "string " ~ transformName(record.name) ~ ";\n";
+					output ~= "string " ~ transformName(record.name) ~ ";\n";
 				else
-					output ~= getIndent(1) ~ "string " ~ transformName(record.name) ~ " = \"" ~ record.value ~ "\";\n";
+					output ~= "string " ~ transformName(record.name) ~ " = \"" ~ record.value ~ "\";\n";
 			}
 		}
 		
@@ -79,8 +79,8 @@ pure void handleFileDataDivision(ref DobolProgram data, ref string output, ref s
 		foreach(record; entry.records) {
 			if (record.type == "") {
 				outerGot = true;
-				output ~= getIndent(1) ~ "@property string " ~ transformName(record.name) ~ "() {\n";
-				output ~= getIndent(2) ~ "return ";
+				output ~= "@property string " ~ transformName(record.name) ~ "() {\n";
+				output ~= getIndent(1) ~ "return ";
 				
 				auto entries = entry.filterOnNameLevel(record.name);
 				bool got;
@@ -115,15 +115,15 @@ pure void handleFileDataDivision(ref DobolProgram data, ref string output, ref s
 		
 		// check types of variables
 		// if wrong make correct
-		output ~= getIndent(1) ~ "void validate" ~ transformName(entry.name) ~ "() {\n";
-		validateFuncs ~= getIndent(1) ~ "validate" ~ transformName(entry.name) ~ "();\n";
-		foreach(record; entry.records) {
-			if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
-				output ~= validateAgainstNameType(transformName(record.name), record.type, 2);
-				output ~= "\n";
-			}
-		}
-		output ~= getIndent(1) ~ "}\n";
+		/*output ~= getIndent(1) ~ "void validate" ~ transformName(entry.name) ~ "() {\n";
+		 validateFuncs ~= getIndent(1) ~ "validate" ~ transformName(entry.name) ~ "();\n";
+		 foreach(record; entry.records) {
+		 if (record.type != "" && record.name != "FILLER" && record.redefines == "") {
+		 output ~= validateAgainstNameType(transformName(record.name), record.type, 2);
+		 output ~= "\n";
+		 }
+		 }
+		 output ~= getIndent(1) ~ "}\n";*/
 	}
 	
 	if (data.dataDivision.fileSectionEntries.length > 0)
@@ -182,8 +182,12 @@ pure void handleWorkingDataDivision(ref DobolProgram data, ref string output, re
 			} else {
 				output ~= "alias " ~ transformName(entry.name) ~ " = " ~ transformName(entry.redefines) ~ ";\n";
 			}
-		} else if (entry.type == "")
-			updateLevels();
+		} else if (entry.type == "") {
+			if (entry.level == 88)
+				output ~= "enum " ~ transformName(entry.name) ~ " = " ~ entry.value ~ ";\n";
+			else
+				updateLevels();
+		}
 	}
 	
 	if (entriesLevelNames.keys.length > 0)
@@ -208,16 +212,14 @@ pure void handleWorkingDataDivision(ref DobolProgram data, ref string output, re
 	if (entriesLevelNames.keys.length > 0)
 		output ~= "\n";
 	
-	output ~= "void validateWorkingDataDivison() {\n";
-	validateFuncs ~= getIndent(1) ~ "validateWorkingDataDivison();\n";
-	foreach(i, name; entryNames) {
-		output ~= validateAgainstNameType(transformName(name), entryTypes[i], 1);
-		output ~= "\n";
-	}
-	
-	if (entryNames.length > 0) {
-		output ~= "}\n";
-	}
+	/*output ~= "void validateWorkingDataDivison() {\n";
+	 validateFuncs ~= getIndent(1) ~ "validateWorkingDataDivison();\n";
+	 foreach(i, name; entryNames) {
+	 output ~= validateAgainstNameType(transformName(name), entryTypes[i], 1);
+	 output ~= "\n";
+	 }
+	 if (entryNames.length > 0)
+	 output ~= "}\n";*/
 	
 	if (data.dataDivision.workerStorageSectionEntries.length > 0)
 		output ~= "\n";
@@ -256,8 +258,16 @@ pure void handleProcedures(ref DobolProgram data, ref string output) {
 					output ~= ");\n";
 					break;
 				case StatementTypes.Perform:
-					// ugh how does statement.perform.untilCondition work?
-					output ~= getIndent(1) ~ transformName(statement.perform.funcname[procedure.id.length + 1 .. $]) ~ "();\n";
+					debug {
+						output ~= getIndent(1) ~ transformName(statement.perform.funcname[procedure.id.length + 1 .. $]) ~ "();\n";
+					} else {
+						if (statement.perform.untilCondition == "")
+							output ~= getIndent(1) ~ transformName(statement.perform.funcname[procedure.id.length + 1 .. $]) ~ "();\n";
+						else {
+							output ~= getIndent(1) ~ "while(" ~ getWorkingDataCheckValue(data, statement.perform.untilCondition) ~ " != " ~ transformName(statement.perform.untilCondition) ~ ") {\n";
+							output ~= getIndent(2) ~ transformName(statement.perform.funcname[procedure.id.length + 1 .. $]) ~ "(); }\n";
+						}
+					}
 					break;
 				case StatementTypes.Open:
 				case StatementTypes.Move:
@@ -385,6 +395,19 @@ enum DobolSystemDevices {
 	C10,
 	C11,
 	C12
+}
+
+pure string getWorkingDataCheckValue(ref DobolProgram data, string name) {
+	bool justGot;
+	foreach_reverse(prop; data.dataDivision.workerStorageSectionEntries) {
+		if (justGot) {
+			return transformName(prop.name);
+		} else if (prop.name == name) {
+			if (prop.level == 88)
+				justGot = true;
+		}
+	}
+	assert(0);
 }
 
 pure string dobolSpaceCreator(size_t size) {
